@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Image Batch Generator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header>
+  <h1>Text → Image</h1>
+  <small>Batch · Variations · Reference uploads</small>
+</header>
+
+<main class="container">
+
+  <!-- LEFT PANEL -->
+  <section class="panel left">
+    <label>Prompts (one per line)</label>
+    <textarea id="prompts" placeholder="Enter prompts here..."></textarea>
+    <div class="row">
+      <span id="count">0/20</span>
+      <button>Fill samples</button>
+      <button>Retry failed</button>
+    </div>
+  </section>
+
+  <!-- RIGHT PANEL -->
+  <section class="panel right">
+    <label>Sleep between requests (ms)</label>
+    <input type="number" value="800" />
+
+    <label>Variations per prompt</label>
+    <input type="number" value="5" />
+
+    <label>Mode</label>
+    <select>
+      <option>Server batch (one POST)</option>
+    </select>
+
+    <label>Reference images</label>
+    <input type="file" multiple />
+
+    <button class="primary" onclick="generate()">Generate</button>
+    <button>Stop</button>
+
+    <button>Download CSV</button>
+    <button>Download ZIP</button>
+  </section>
+
+</main>
+
+<!-- PROGRESS -->
+<div class="progress">
+  <div class="bar" id="progressBar"></div>
+</div>
+
+<!-- RESULTS -->
+<section id="results" class="grid"></section>
+
+<script src="script.js"></script>
+</body>
+</html>
