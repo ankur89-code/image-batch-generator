@@ -10,7 +10,7 @@ export default function Home() {
 
   const handleGenerate = async () => {
     if (!prompts.trim()) {
-      alert("Please enter at least one prompt");
+      alert("Please enter a prompt");
       return;
     }
 
@@ -24,10 +24,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          prompts: prompts
-            .split("\n")
-            .map((p) => p.trim())
-            .filter((p) => p !== ""),
+          prompts: prompts.trim(),
           sleep: Number(sleep),
           variations: Number(variations),
         }),
@@ -51,112 +48,50 @@ export default function Home() {
   };
 
   return (
-    <div style={styles.wrapper}>
-      <h1 style={styles.title}>Batch Image Generator</h1>
+    <div style={{ padding: 40, fontFamily: "Arial" }}>
+      <h1>Batch Image Generator</h1>
 
-      <div style={styles.container}>
-        <div style={styles.left}>
-          <label>Prompts (one per line)</label>
-          <textarea
-            rows={8}
-            value={prompts}
-            onChange={(e) => setPrompts(e.target.value)}
-            style={styles.textarea}
-            placeholder="a red apple on white background"
-          />
-        </div>
+      <textarea
+        rows={6}
+        value={prompts}
+        onChange={(e) => setPrompts(e.target.value)}
+        placeholder="an apple on white background"
+        style={{ width: "100%", padding: 10 }}
+      />
 
-        <div style={styles.right}>
-          <label>Sleep between requests (ms)</label>
-          <input
-            type="number"
-            value={sleep}
-            onChange={(e) => setSleep(e.target.value)}
-            style={styles.input}
-          />
+      <br /><br />
 
-          <label>Variations per prompt</label>
-          <input
-            type="number"
-            value={variations}
-            onChange={(e) => setVariations(e.target.value)}
-            style={styles.input}
-          />
+      <input
+        type="number"
+        value={sleep}
+        onChange={(e) => setSleep(e.target.value)}
+      />
+      <span> Sleep (ms)</span>
 
-          <button onClick={handleGenerate} style={styles.button}>
-            {loading ? "Generating..." : "Generate"}
-          </button>
-        </div>
-      </div>
+      <br /><br />
 
-      <div style={styles.imageGrid}>
+      <input
+        type="number"
+        value={variations}
+        onChange={(e) => setVariations(e.target.value)}
+      />
+      <span> Variations</span>
+
+      <br /><br />
+
+      <button onClick={handleGenerate} disabled={loading}>
+        {loading ? "Generating..." : "Generate"}
+      </button>
+
+      <div style={{ marginTop: 30 }}>
         {images.map((img, i) => (
-          <img key={i} src={img} style={styles.image} />
+          <img
+            key={i}
+            src={img}
+            style={{ width: 250, margin: 10 }}
+          />
         ))}
       </div>
     </div>
   );
 }
-
-const styles = {
-  wrapper: {
-    padding: "40px",
-    fontFamily: "Arial",
-    background: "#f4f6f9",
-    minHeight: "100vh",
-  },
-  title: {
-    fontSize: "28px",
-    marginBottom: "20px",
-  },
-  container: {
-    display: "flex",
-    gap: "30px",
-    background: "#ffffff",
-    padding: "25px",
-    borderRadius: "12px",
-    boxShadow: "0 5px 15px rgba(0,0,0,0.08)",
-  },
-  left: {
-    flex: 2,
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
-  right: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-  },
-  textarea: {
-    padding: "10px",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    fontSize: "14px",
-  },
-  input: {
-    padding: "8px",
-    borderRadius: "6px",
-    border: "1px solid #ccc",
-  },
-  button: {
-    padding: "12px",
-    background: "#5b4bff",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
-  imageGrid: {
-    marginTop: "30px",
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-    gap: "15px",
-  },
-  image: {
-    width: "100%",
-    borderRadius: "8px",
-  },
-};

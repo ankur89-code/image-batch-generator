@@ -2,9 +2,9 @@ import OpenAI from "openai";
 
 export async function POST(req) {
   try {
-    const { prompts, sleep, variations } = await req.json();
+    const { prompts, variations } = await req.json();
 
-    if (!prompts || prompts.length === 0) {
+    if (!prompts || prompts.trim() === "") {
       return Response.json(
         { error: "Prompt is required" },
         { status: 400 }
@@ -15,33 +15,30 @@ export async function POST(req) {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    let allImages = [];
+    const promptList = prompts.split("\n").filter(Boolean);
 
-    for (const prompt of prompts) {
-      for (let i = 0; i < variations; i++) {
-        const result = await openai.images.generate({
-          model: "gpt-image-1",
-          prompt,
-          size: "1024x1024",
-        });
+    let images = [];
 
-        const base64 = result.data[0].b64_json;
-        const imageUrl = `data:image/png;base64,${base64}`;
+    for (const prompt of promptList) {
+      const result = await openai.images.generate({
+        model: "gpt-image-1",
+        prompt: prompt,
+        size: "1024x1024",
+        n: variations || 1,
+      });
 
-        allImages.push(imageUrl);
+      const urls = result.data.map(
+        (img) => `data:image/png;base64,${img.b64_json}`
+      );
 
-        if (sleep) {
-          await new Promise((resolve) => setTimeout(resolve, sleep));
-        }
-      }
+      images.push(...urls);
     }
 
-    return Response.json({ images: allImages });
-
+    return Response.json({ images });
   } catch (error) {
-    console.error("API ERROR:", error);
+    console.error(error);
     return Response.json(
-      { error: error.message },
+      { error: "Image generation failed" },
       { status: 500 }
     );
   }
