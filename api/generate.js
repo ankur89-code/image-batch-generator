@@ -1,27 +1,31 @@
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+const handleGenerate = async () => {
+  if (!prompts.trim()) {
+    alert("Please enter a prompt");
+    return;
   }
 
   try {
-    const { prompt } = req.body;
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompts: prompts.trim(),
+        variations: Number(variations),
+      }),
+    });
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt is required" });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Something went wrong");
+      return;
     }
 
-    // TEMP mock response (prevents 500 error)
-    const results = [
-      { url: "https://via.placeholder.com/512?text=Image+1" },
-      { url: "https://via.placeholder.com/512?text=Image+2" }
-    ];
-
-    return res.status(200).json({ results });
+    setImages(data.images || []);
   } catch (err) {
     console.error(err);
-    return res.status(500).json({
-      results: [],
-      error: "Internal Server Error"
-    });
+    alert("Request failed");
   }
-}
+};
