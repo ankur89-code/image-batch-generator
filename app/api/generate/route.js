@@ -1,6 +1,6 @@
-export const runtime = "nodejs";
-
 import OpenAI from "openai";
+
+export const runtime = "nodejs";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -32,16 +32,22 @@ export async function POST(req) {
           size: "1024x1024",
         });
 
-        images.push(result.data[0].url);
+        const image = result.data?.[0];
+
+        if (image?.url) {
+          images.push(image.url);
+        } else if (image?.b64_json) {
+          images.push(`data:image/png;base64,${image.b64_json}`);
+        }
       }
     }
 
     return Response.json({ images });
 
   } catch (error) {
-    console.error(error);
+    console.error("IMAGE ERROR:", error);
     return Response.json(
-      { error: "Image generation failed" },
+      { error: error.message || "Image generation failed" },
       { status: 500 }
     );
   }
