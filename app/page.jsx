@@ -6,19 +6,48 @@ export default function Home() {
   const [sleep, setSleep] = useState(800);
   const [variations, setVariations] = useState(1);
   const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const handleGenerate = async () => {
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      body: JSON.stringify({
-        prompts,
-        sleep,
-        variations,
-      }),
-    });
+    if (!prompts.trim()) {
+      alert("Please enter at least one prompt");
+      return;
+    }
 
-    const data = await res.json();
-    setImages(data.images || []);
+    setLoading(true);
+    setImages([]);
+
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompts: prompts
+            .split("\n")
+            .map((p) => p.trim())
+            .filter((p) => p !== ""),
+          sleep: Number(sleep),
+          variations: Number(variations),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Something went wrong");
+        setLoading(false);
+        return;
+      }
+
+      setImages(data.images || []);
+    } catch (err) {
+      console.error(err);
+      alert("Request failed");
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -26,19 +55,17 @@ export default function Home() {
       <h1 style={styles.title}>Batch Image Generator</h1>
 
       <div style={styles.container}>
-        {/* LEFT PANEL */}
         <div style={styles.left}>
-          <label>Prompts (one per line, up to 20)</label>
+          <label>Prompts (one per line)</label>
           <textarea
             rows={8}
             value={prompts}
             onChange={(e) => setPrompts(e.target.value)}
             style={styles.textarea}
-            placeholder="an apple on white background"
+            placeholder="a red apple on white background"
           />
         </div>
 
-        {/* RIGHT PANEL */}
         <div style={styles.right}>
           <label>Sleep between requests (ms)</label>
           <input
@@ -56,20 +83,12 @@ export default function Home() {
             style={styles.input}
           />
 
-          <label>Reference Images</label>
-          <input
-            type="file"
-            multiple
-            style={styles.file}
-          />
-
           <button onClick={handleGenerate} style={styles.button}>
-            Generate
+            {loading ? "Generating..." : "Generate"}
           </button>
         </div>
       </div>
 
-      {/* IMAGE RESULTS */}
       <div style={styles.imageGrid}>
         {images.map((img, i) => (
           <img key={i} src={img} style={styles.image} />
@@ -120,9 +139,6 @@ const styles = {
     padding: "8px",
     borderRadius: "6px",
     border: "1px solid #ccc",
-  },
-  file: {
-    padding: "5px",
   },
   button: {
     padding: "12px",
