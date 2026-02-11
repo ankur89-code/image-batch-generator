@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 
 export default function Home() {
   const [prompts, setPrompts] = useState("");
@@ -8,6 +10,20 @@ export default function Home() {
   const [variations, setVariations] = useState(1);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [dark, setDark] = useState(false);
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("promptHistory");
+    if (saved) setHistory(JSON.parse(saved));
+  }, []);
+
+  const saveHistory = (newPrompt) => {
+    const updated = [newPrompt, ...history.slice(0, 9)];
+    setHistory(updated);
+    localStorage.setItem("promptHistory", JSON.stringify(updated));
+  };
 
   const handleGenerate = async () => {
     if (!prompts.trim()) {
@@ -17,170 +33,142 @@ export default function Home() {
 
     setLoading(true);
     setImages([]);
+    setProgress(0);
 
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompts: prompts.trim(),
-          variations,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompts, variations }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "Something went wrong");
+        alert(data.error);
         setLoading(false);
         return;
       }
 
-      setImages(data.images || []);
+      setImages(data.images);
+      saveHistory(prompts);
+
+      setProgress(100);
     } catch (err) {
-      console.error(err);
       alert("Request failed");
     }
 
     setLoading(false);
   };
 
+  const downloadImage = async (url, index) => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    saveAs(blob, `image-${index + 1}.png`);
+  };
+
+  const downloadZip = async () => {
+    const zip = new JSZip();
+
+    for (let i = 0; i < images.length; i++) {
+      const response = await fetch(images[i]);
+      const blob = await response.blob();
+      zip.file(`image-${i + 1}.png`, blob);
+    }
+
+    const content = await zip.generateAsync({ type: "blob" });
+    saveAs(content, "images.zip");
+  };
+
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>✨ Batch Image Generator</h1>
+    <div className={dark ? "dark" : ""}>
+      <div className="min-h-screen p-8 bg-white dark:bg-gray-900 dark:text-white">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Batch Image Generator</h1>
+          <button
+            onClick={() => setDark(!dark)}
+            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded"
+          >
+            {dark ? "Light Mode" : "Dark Mode"}
+          </button>
+        </div>
 
         <textarea
-          placeholder="Enter prompts (one per line)..."
+          className="w-full border p-4 rounded mb-4 text-black"
+          rows="4"
+          placeholder="Enter prompts (one per line)"
           value={prompts}
           onChange={(e) => setPrompts(e.target.value)}
-          style={styles.textarea}
         />
 
-        <div style={styles.row}>
-          <div style={styles.inputGroup}>
-            <label>Sleep (ms)</label>
-            <input
-              type="number"
-              value={sleep}
-              onChange={(e) => setSleep(e.target.value)}
-              style={styles.input}
-            />
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label>Variations</label>
-            <input
-              type="number"
-              value={variations}
-              onChange={(e) => setVariations(e.target.value)}
-              style={styles.input}
-            />
-          </div>
+        <div className="flex gap-4 mb-4">
+          <input
+            type="number"
+            value={variations}
+            onChange={(e) => setVariations(Number(e.target.value))}
+            className="border p-2 rounded text-black"
+            placeholder="Variations"
+          />
         </div>
 
         <button
           onClick={handleGenerate}
-          style={loading ? styles.buttonDisabled : styles.button}
-          disabled={loading}
+          className="px-6 py-3 bg-blue-600 text-white rounded"
         >
-          {loading ? "Generating..." : "Generate Images"}
+          {loading ? "Generating..." : "Generate"}
         </button>
-      </div>
 
-      {images.length > 0 && (
-        <div style={styles.grid}>
-          {images.map((img, index) => (
-            <div key={index} style={styles.imageCard}>
-              <img src={img} alt="Generated" style={styles.image} />
+        {loading && (
+          <div className="mt-4 w-full bg-gray-200 rounded">
+            <div
+              className="bg-blue-600 text-xs leading-none py-1 text-center text-white"
+              style={{ width: `${progress}%` }}
+            >
+              {progress}%
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+
+        {images.length > 0 && (
+          <>
+            <button
+              onClick={downloadZip}
+              className="mt-6 px-4 py-2 bg-green-600 text-white rounded"
+            >
+              Download All as ZIP
+            </button>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
+              {images.map((img, index) => (
+                <div key={index} className="border p-2 rounded">
+                  <img src={img} alt="" className="w-full rounded" />
+                  <button
+                    onClick={() => downloadImage(img, index)}
+                    className="mt-2 w-full px-2 py-1 bg-purple-600 text-white rounded"
+                  >
+                    Download
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {history.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-xl font-bold mb-2">Prompt History</h2>
+            {history.map((item, i) => (
+              <div
+                key={i}
+                className="cursor-pointer underline"
+                onClick={() => setPrompts(item)}
+              >
+                {item}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "linear-gradient(to right, #141e30, #243b55)",
-    padding: "40px 20px",
-    fontFamily: "Arial, sans-serif",
-  },
-  card: {
-    maxWidth: "800px",
-    margin: "0 auto",
-    background: "#ffffff",
-    padding: "30px",
-    borderRadius: "12px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-  },
-  title: {
-    textAlign: "center",
-    marginBottom: "20px",
-  },
-  textarea: {
-    width: "100%",
-    height: "120px",
-    padding: "12px",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    fontSize: "14px",
-    marginBottom: "20px",
-  },
-  row: {
-    display: "flex",
-    gap: "20px",
-    marginBottom: "20px",
-  },
-  inputGroup: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-  },
-  input: {
-    padding: "8px",
-    borderRadius: "6px",
-    border: "1px solid #ccc",
-    marginTop: "5px",
-  },
-  button: {
-    width: "100%",
-    padding: "12px",
-    backgroundColor: "#0070f3",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "16px",
-    cursor: "pointer",
-  },
-  buttonDisabled: {
-    width: "100%",
-    padding: "12px",
-    backgroundColor: "#999",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "16px",
-  },
-  grid: {
-    maxWidth: "1200px",
-    margin: "40px auto",
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-    gap: "20px",
-  },
-  imageCard: {
-    background: "#fff",
-    padding: "10px",
-    borderRadius: "10px",
-    boxShadow: "0 5px 15px rgba(0,0,0,0.1)",
-  },
-  image: {
-    width: "100%",
-    borderRadius: "8px",
-  },
-};
