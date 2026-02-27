@@ -26,39 +26,60 @@ export default function Home() {
   );
 
   const totalRequests = promptList.length * variations;
+  const canGenerate = !loading && promptList.length > 0;
 
   useEffect(() => {
-    const saved = localStorage.getItem("promptHistory");
-    if (saved) {
+    const savedHistory = localStorage.getItem("promptHistory");
+    const savedTheme = localStorage.getItem("theme");
+
+    if (savedHistory) {
       try {
-        setHistory(JSON.parse(saved));
+        setHistory(JSON.parse(savedHistory));
       } catch {
         setHistory([]);
       }
     }
+
+    if (savedTheme === "dark") {
+      setDark(true);
+    }
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  }, [dark]);
 
   useEffect(() => {
     if (!loading) return;
 
     const interval = setInterval(() => {
-      setProgress((prev) => (prev >= 90 ? prev : prev + 5));
-    }, 200);
+      setProgress((prev) => (prev >= 90 ? prev : prev + 3));
+    }, 180);
 
     return () => clearInterval(interval);
   }, [loading]);
 
   const saveHistory = (newPrompt) => {
-    const updated = [newPrompt, ...history.filter((item) => item !== newPrompt)].slice(
-      0,
-      MAX_HISTORY_ITEMS
-    );
-    setHistory(updated);
-    localStorage.setItem("promptHistory", JSON.stringify(updated));
+    setHistory((prev) => {
+      const updated = [newPrompt, ...prev.filter((item) => item !== newPrompt)].slice(
+        0,
+        MAX_HISTORY_ITEMS
+      );
+      localStorage.setItem("promptHistory", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const removeFromHistory = (promptToRemove) => {
+    setHistory((prev) => {
+      const updated = prev.filter((item) => item !== promptToRemove);
+      localStorage.setItem("promptHistory", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleGenerate = async () => {
-    if (!prompts.trim()) {
+    if (!promptList.length) {
       setError("Please enter at least one prompt.");
       return;
     }
@@ -83,7 +104,7 @@ export default function Home() {
         return;
       }
 
-      setImages(data.images);
+      setImages(data.images || []);
       saveHistory(prompts);
       setProgress(100);
     } catch {
@@ -118,7 +139,7 @@ export default function Home() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Batch Image Generator</h1>
           <button
-            onClick={() => setDark(!dark)}
+            onClick={() => setDark((prev) => !prev)}
             className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded"
           >
             {dark ? "Light Mode" : "Dark Mode"}
@@ -130,7 +151,10 @@ export default function Home() {
           rows="4"
           placeholder="Enter prompts (one per line)"
           value={prompts}
-          onChange={(e) => setPrompts(e.target.value)}
+          onChange={(e) => {
+            setPrompts(e.target.value);
+            if (error) setError("");
+          }}
         />
 
         <div className="text-sm mb-4 text-gray-700 dark:text-gray-300">
@@ -149,22 +173,35 @@ export default function Home() {
               value={variations}
               onChange={(e) => setVariations(Number(e.target.value))}
             />
-            <span className="font-semibold">{variations}</span>
+            <span className="font-semibold w-5 text-center">{variations}</span>
           </label>
 
           <button
             onClick={handleGenerate}
-            disabled={loading}
+            disabled={!canGenerate}
             className="px-6 py-3 bg-blue-600 text-white rounded disabled:opacity-60"
           >
             {loading ? "Generating..." : "Generate"}
+          </button>
+
+          <button
+            onClick={() => {
+              setPrompts("");
+              setImages([]);
+              setError("");
+              setProgress(0);
+            }}
+            disabled={loading}
+            className="px-4 py-3 bg-gray-200 text-gray-800 rounded disabled:opacity-60"
+          >
+            Clear
           </button>
         </div>
 
         {error && <p className="mb-4 text-red-500">{error}</p>}
 
         {loading && (
-          <div className="mt-2 w-full bg-gray-200 rounded overflow-hidden">
+          <div className="mt-2 w-full bg-gray-200 rounded overflow-hidden" aria-live="polite">
             <div
               className="bg-blue-600 text-xs leading-none py-1 text-center text-white transition-all"
               style={{ width: `${progress}%` }}
@@ -204,13 +241,22 @@ export default function Home() {
             <h2 className="text-xl font-bold mb-2">Prompt History</h2>
             <div className="flex flex-wrap gap-2">
               {history.map((item, i) => (
-                <button
-                  key={`${item}-${i}`}
-                  className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 underline"
-                  onClick={() => setPrompts(item)}
-                >
-                  {item.length > 50 ? `${item.slice(0, 50)}...` : item}
-                </button>
+                <div key={`${item}-${i}`} className="flex items-center gap-1">
+                  <button
+                    className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 underline"
+                    onClick={() => setPrompts(item)}
+                    title={item}
+                  >
+                    {item.length > 50 ? `${item.slice(0, 50)}...` : item}
+                  </button>
+                  <button
+                    className="px-2 py-1 rounded-full bg-red-100 dark:bg-red-900 text-xs"
+                    onClick={() => removeFromHistory(item)}
+                    aria-label="Remove prompt from history"
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
             </div>
           </div>
