@@ -1,39 +1,72 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
+const MAX_HISTORY_ITEMS = 10;
+
 export default function Home() {
   const [prompts, setPrompts] = useState("");
-  const [sleep, setSleep] = useState(800);
   const [variations, setVariations] = useState(1);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dark, setDark] = useState(false);
   const [history, setHistory] = useState([]);
+  const [error, setError] = useState("");
+
+  const promptList = useMemo(
+    () =>
+      prompts
+        .split("\n")
+        .map((p) => p.trim())
+        .filter(Boolean),
+    [prompts]
+  );
+
+  const totalRequests = promptList.length * variations;
 
   useEffect(() => {
     const saved = localStorage.getItem("promptHistory");
-    if (saved) setHistory(JSON.parse(saved));
+    if (saved) {
+      try {
+        setHistory(JSON.parse(saved));
+      } catch {
+        setHistory([]);
+      }
+    }
   }, []);
 
+  useEffect(() => {
+    if (!loading) return;
+
+    const interval = setInterval(() => {
+      setProgress((prev) => (prev >= 90 ? prev : prev + 5));
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [loading]);
+
   const saveHistory = (newPrompt) => {
-    const updated = [newPrompt, ...history.slice(0, 9)];
+    const updated = [newPrompt, ...history.filter((item) => item !== newPrompt)].slice(
+      0,
+      MAX_HISTORY_ITEMS
+    );
     setHistory(updated);
     localStorage.setItem("promptHistory", JSON.stringify(updated));
   };
 
   const handleGenerate = async () => {
     if (!prompts.trim()) {
-      alert("Please enter a prompt");
+      setError("Please enter at least one prompt.");
       return;
     }
 
+    setError("");
     setLoading(true);
     setImages([]);
-    setProgress(0);
+    setProgress(5);
 
     try {
       const res = await fetch("/api/generate", {
@@ -45,17 +78,16 @@ export default function Home() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error);
+        setError(data.error || "Image generation failed.");
         setLoading(false);
         return;
       }
 
       setImages(data.images);
       saveHistory(prompts);
-
       setProgress(100);
-    } catch (err) {
-      alert("Request failed");
+    } catch {
+      setError("Request failed. Please try again.");
     }
 
     setLoading(false);
@@ -82,7 +114,7 @@ export default function Home() {
 
   return (
     <div className={dark ? "dark" : ""}>
-      <div className="min-h-screen p-8 bg-white dark:bg-gray-900 dark:text-white">
+      <div className="min-h-screen p-8 bg-white dark:bg-gray-900 dark:text-white transition-colors">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Batch Image Generator</h1>
           <button
@@ -94,34 +126,47 @@ export default function Home() {
         </div>
 
         <textarea
-          className="w-full border p-4 rounded mb-4 text-black"
+          className="w-full border p-4 rounded mb-2 text-black"
           rows="4"
           placeholder="Enter prompts (one per line)"
           value={prompts}
           onChange={(e) => setPrompts(e.target.value)}
         />
 
-        <div className="flex gap-4 mb-4">
-          <input
-            type="number"
-            value={variations}
-            onChange={(e) => setVariations(Number(e.target.value))}
-            className="border p-2 rounded text-black"
-            placeholder="Variations"
-          />
+        <div className="text-sm mb-4 text-gray-700 dark:text-gray-300">
+          {promptList.length} prompt{promptList.length === 1 ? "" : "s"} × {variations} variation
+          {variations === 1 ? "" : "s"} = {totalRequests} image request
+          {totalRequests === 1 ? "" : "s"}
         </div>
 
-        <button
-          onClick={handleGenerate}
-          className="px-6 py-3 bg-blue-600 text-white rounded"
-        >
-          {loading ? "Generating..." : "Generate"}
-        </button>
+        <div className="flex flex-wrap items-center gap-4 mb-4">
+          <label className="flex items-center gap-2">
+            <span>Variations:</span>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              value={variations}
+              onChange={(e) => setVariations(Number(e.target.value))}
+            />
+            <span className="font-semibold">{variations}</span>
+          </label>
+
+          <button
+            onClick={handleGenerate}
+            disabled={loading}
+            className="px-6 py-3 bg-blue-600 text-white rounded disabled:opacity-60"
+          >
+            {loading ? "Generating..." : "Generate"}
+          </button>
+        </div>
+
+        {error && <p className="mb-4 text-red-500">{error}</p>}
 
         {loading && (
-          <div className="mt-4 w-full bg-gray-200 rounded">
+          <div className="mt-2 w-full bg-gray-200 rounded overflow-hidden">
             <div
-              className="bg-blue-600 text-xs leading-none py-1 text-center text-white"
+              className="bg-blue-600 text-xs leading-none py-1 text-center text-white transition-all"
               style={{ width: `${progress}%` }}
             >
               {progress}%
@@ -141,7 +186,7 @@ export default function Home() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
               {images.map((img, index) => (
                 <div key={index} className="border p-2 rounded">
-                  <img src={img} alt="" className="w-full rounded" />
+                  <img src={img} alt={`Generated image ${index + 1}`} className="w-full rounded" />
                   <button
                     onClick={() => downloadImage(img, index)}
                     className="mt-2 w-full px-2 py-1 bg-purple-600 text-white rounded"
@@ -157,15 +202,17 @@ export default function Home() {
         {history.length > 0 && (
           <div className="mt-10">
             <h2 className="text-xl font-bold mb-2">Prompt History</h2>
-            {history.map((item, i) => (
-              <div
-                key={i}
-                className="cursor-pointer underline"
-                onClick={() => setPrompts(item)}
-              >
-                {item}
-              </div>
-            ))}
+            <div className="flex flex-wrap gap-2">
+              {history.map((item, i) => (
+                <button
+                  key={`${item}-${i}`}
+                  className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 underline"
+                  onClick={() => setPrompts(item)}
+                >
+                  {item.length > 50 ? `${item.slice(0, 50)}...` : item}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
