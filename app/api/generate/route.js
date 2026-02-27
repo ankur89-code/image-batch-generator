@@ -1,31 +1,40 @@
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const { prompts = [], variations = 1 } = body;
+    const body = await request.json();
 
-    // Simulate API delay (so UI feels real)
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    const prompts = body.prompts || [];
+    const variations = body.variations || 1;
 
-    const results = [];
+    // simulate delay
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    prompts.forEach((prompt, i) => {
-      for (let v = 0; v < variations; v++) {
-        results.push({
-          prompt,
-          url: `https://picsum.photos/seed/${encodeURIComponent(
-            prompt + v
-          )}/400/400`,
+    const images = [];
+
+    for (let i = 0; i < prompts.length; i++) {
+      for (let j = 0; j < variations; j++) {
+        images.push({
+          prompt: prompts[i],
+          url: `https://picsum.photos/seed/${i}-${j}/400/400`,
         });
       }
-    });
+    }
 
-    return Response.json({
-      images: results,
-    });
+    return new Response(
+      JSON.stringify({ images }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   } catch (error) {
-    return Response.json(
-      { error: "Mock generation failed" },
-      { status: 500 }
+    console.error("MOCK ERROR:", error);
+
+    return new Response(
+      JSON.stringify({ error: "Mock generation failed" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
     );
   }
 }
