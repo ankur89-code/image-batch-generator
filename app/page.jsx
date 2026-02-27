@@ -31,6 +31,16 @@ export default function Home() {
       return;
     }
 
+    const promptList = prompts
+      .split("\n")
+      .map((prompt) => prompt.trim())
+      .filter(Boolean);
+
+    if (promptList.length === 0) {
+      alert("Please enter at least one valid prompt");
+      return;
+    }
+
     setLoading(true);
     setImages([]);
     setProgress(0);
@@ -39,7 +49,7 @@ export default function Home() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompts, variations }),
+        body: JSON.stringify({ prompts: promptList, variations }),
       });
 
       const data = await res.json();
@@ -71,7 +81,7 @@ export default function Home() {
     const zip = new JSZip();
 
     for (let i = 0; i < images.length; i++) {
-      const response = await fetch(images[i]);
+      const response = await fetch(images[i].url);
       const blob = await response.blob();
       zip.file(`image-${i + 1}.png`, blob);
     }
@@ -141,9 +151,12 @@ export default function Home() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
               {images.map((img, index) => (
                 <div key={index} className="border p-2 rounded">
-                  <img src={img} alt="" className="w-full rounded" />
+                  <img src={img.url} alt={img.prompt} className="w-full rounded" />
+                  <p className="mt-2 text-sm truncate" title={img.prompt}>
+                    {img.prompt}
+                  </p>
                   <button
-                    onClick={() => downloadImage(img, index)}
+                    onClick={() => downloadImage(img.url, index)}
                     className="mt-2 w-full px-2 py-1 bg-purple-600 text-white rounded"
                   >
                     Download
