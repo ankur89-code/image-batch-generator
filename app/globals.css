@@ -1,7 +1,212 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+* {
+  box-sizing: border-box;
+}
 
 body {
-  background-color: #f9fafb;
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #f3f3f8;
+  color: #1e1e27;
+}
+
+.page-shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 2rem 1.2rem 3rem;
+}
+
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.title-row p {
+  margin-top: 0.35rem;
+  color: #69697b;
+}
+
+.backend-tag {
+  color: #666;
+  margin-top: 0.75rem;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 2.3fr) minmax(300px, 1fr);
+  gap: 1rem;
+}
+
+.card {
+  border: 1px solid #dbdce7;
+  border-radius: 16px;
+  background: #f6f6fb;
+  padding: 1rem;
+}
+
+.label {
+  display: block;
+  font-size: 0.92rem;
+  margin-bottom: 0.45rem;
+}
+
+textarea,
+input,
+select,
+button {
+  font: inherit;
+}
+
+textarea,
+input,
+select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #d4d5df;
+  background: #fff;
+  padding: 0.75rem 0.85rem;
+}
+
+textarea {
+  min-height: 290px;
+  resize: vertical;
+}
+
+.prompt-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 0.55rem;
+}
+
+button {
+  border: none;
+  border-radius: 12px;
+  padding: 0.65rem 0.95rem;
+  cursor: pointer;
+}
+
+.inline-actions button,
+.secondary,
+.ghost {
+  background: #e6e7ee;
+  color: #1d1d28;
+}
+
+.primary {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.button-pair,
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.wide {
+  width: 100%;
+  margin-top: 0.8rem;
+}
+
+.helper {
+  font-size: 0.82rem;
+  color: #6a6b79;
+  margin: 0.45rem 0 0;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+  font-size: 0.93rem;
+}
+
+.checkbox input {
+  width: auto;
+}
+
+.progress-section {
+  margin-top: 1rem;
+}
+
+.progress-section p {
+  margin: 0 0 0.4rem;
+  color: #4f5162;
+}
+
+.progress-track {
+  width: 100%;
+  height: 12px;
+  border-radius: 99px;
+  background: #d3d4e2;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #4f46e5;
+  transition: width 0.25s ease;
+}
+
+.result-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+
+.result-card {
+  background: #fff;
+  border: 1px solid #d8d9e2;
+  border-radius: 12px;
+  padding: 0.7rem;
+}
+
+.result-card h3 {
+  margin: 0;
+}
+
+.result-card p {
+  margin: 0.4rem 0 0.6rem;
+  font-size: 0.85rem;
+  color: #4d4f61;
+}
+
+.result-card img {
+  width: 100%;
+  border-radius: 10px;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.result-card button {
+  width: 100%;
+  background: #4f46e5;
+  color: #fff;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 920px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
 }
