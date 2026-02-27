@@ -1,13 +1,31 @@
 export async function POST(req) {
-  const body = await req.json();
+  try {
+    const body = await req.json();
+    const { prompts = [], variations = 1 } = body;
 
-  // Fake delay to simulate API
-  await new Promise(r => setTimeout(r, 1000));
+    // Simulate API delay (so UI feels real)
+    await new Promise((resolve) => setTimeout(resolve, 1200));
 
-  return Response.json({
-    images: [
-      { url: "https://picsum.photos/400?random=1" },
-      { url: "https://picsum.photos/400?random=2" }
-    ]
-  });
+    const results = [];
+
+    prompts.forEach((prompt, i) => {
+      for (let v = 0; v < variations; v++) {
+        results.push({
+          prompt,
+          url: `https://picsum.photos/seed/${encodeURIComponent(
+            prompt + v
+          )}/400/400`,
+        });
+      }
+    });
+
+    return Response.json({
+      images: results,
+    });
+  } catch (error) {
+    return Response.json(
+      { error: "Mock generation failed" },
+      { status: 500 }
+    );
+  }
 }
