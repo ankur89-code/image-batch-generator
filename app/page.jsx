@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
@@ -15,6 +15,9 @@ export default function Home() {
   const [dark, setDark] = useState(false);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState("");
+  const [runStats, setRunStats] = useState({ completed: 0, total: 0, activePrompt: "" });
+  const [promptStatuses, setPromptStatuses] = useState([]);
+  const controllerRef = useRef(null);
 
   const promptList = useMemo(
     () =>
@@ -40,24 +43,12 @@ export default function Home() {
       }
     }
 
-    if (savedTheme === "dark") {
-      setDark(true);
-    }
+    if (savedTheme === "dark") setDark(true);
   }, []);
 
   useEffect(() => {
     localStorage.setItem("theme", dark ? "dark" : "light");
   }, [dark]);
-
-  useEffect(() => {
-    if (!loading) return;
-
-    const interval = setInterval(() => {
-      setProgress((prev) => (prev >= 90 ? prev : prev + 3));
-    }, 180);
-
-    return () => clearInterval(interval);
-  }, [loading]);
 
   const saveHistory = (newPrompt) => {
     setHistory((prev) => {
@@ -78,40 +69,77 @@ export default function Home() {
     });
   };
 
+  const stopGeneration = () => {
+    controllerRef.current?.abort();
+  };
+
+  const updatePromptStatus = (targetPrompt, status) => {
+    setPromptStatuses((prev) =>
+      prev.map((item) => (item.prompt === targetPrompt ? { ...item, status } : item))
+    );
+  };
+
   const handleGenerate = async () => {
     if (!promptList.length) {
       setError("Please enter at least one prompt.");
       return;
     }
 
+    const statuses = promptList.map((prompt) => ({ prompt, status: "queued" }));
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
     setError("");
     setLoading(true);
     setImages([]);
-    setProgress(5);
+    setPromptStatuses(statuses);
+    setRunStats({ completed: 0, total: totalRequests, activePrompt: "" });
+    setProgress(0);
+
+    const accumulatedImages = [];
+    let completedCount = 0;
 
     try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompts, variations }),
-      });
+      for (const prompt of promptList) {
+        updatePromptStatus(prompt, "running");
+        setRunStats((prev) => ({ ...prev, activePrompt: prompt }));
 
-      const data = await res.json();
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompts: prompt, variations }),
+          signal: controller.signal,
+        });
 
-      if (!res.ok) {
-        setError(data.error || "Image generation failed.");
-        setLoading(false);
-        return;
+        const data = await res.json();
+
+        if (!res.ok) {
+          updatePromptStatus(prompt, "failed");
+          throw new Error(data.error || "Image generation failed.");
+        }
+
+        const newImages = data.images || [];
+        accumulatedImages.push(...newImages);
+        setImages([...accumulatedImages]);
+
+        completedCount += variations;
+        setRunStats((prev) => ({ ...prev, completed: completedCount }));
+        setProgress(Math.round((completedCount / totalRequests) * 100));
+        updatePromptStatus(prompt, "done");
       }
 
-      setImages(data.images || []);
+      setRunStats((prev) => ({ ...prev, activePrompt: "" }));
       saveHistory(prompts);
-      setProgress(100);
-    } catch {
-      setError("Request failed. Please try again.");
+    } catch (err) {
+      if (err.name === "AbortError") {
+        setError("Generation cancelled.");
+      } else {
+        setError(err.message || "Request failed. Please try again.");
+      }
+    } finally {
+      controllerRef.current = null;
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const downloadImage = async (url, index) => {
@@ -131,6 +159,13 @@ export default function Home() {
 
     const content = await zip.generateAsync({ type: "blob" });
     saveAs(content, "images.zip");
+  };
+
+  const statusColor = {
+    queued: "bg-gray-100 dark:bg-gray-800",
+    running: "bg-yellow-100 dark:bg-yellow-900",
+    done: "bg-green-100 dark:bg-green-900",
+    failed: "bg-red-100 dark:bg-red-900",
   };
 
   return (
@@ -184,12 +219,23 @@ export default function Home() {
             {loading ? "Generating..." : "Generate"}
           </button>
 
+          {loading && (
+            <button
+              onClick={stopGeneration}
+              className="px-4 py-3 bg-red-600 text-white rounded"
+            >
+              Stop
+            </button>
+          )}
+
           <button
             onClick={() => {
               setPrompts("");
               setImages([]);
               setError("");
               setProgress(0);
+              setPromptStatuses([]);
+              setRunStats({ completed: 0, total: 0, activePrompt: "" });
             }}
             disabled={loading}
             className="px-4 py-3 bg-gray-200 text-gray-800 rounded disabled:opacity-60"
@@ -207,6 +253,25 @@ export default function Home() {
               style={{ width: `${progress}%` }}
             >
               {progress}%
+            </div>
+          </div>
+        )}
+
+        {(loading || runStats.completed > 0 || promptStatuses.length > 0) && (
+          <div className="mt-4 space-y-2">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Completed {runStats.completed}/{runStats.total || totalRequests} image requests
+              {runStats.activePrompt ? ` • now generating: ${runStats.activePrompt}` : ""}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {promptStatuses.map((item) => (
+                <span
+                  key={item.prompt}
+                  className={`px-3 py-1 rounded-full text-sm ${statusColor[item.status]}`}
+                >
+                  {item.prompt.length > 30 ? `${item.prompt.slice(0, 30)}...` : item.prompt} ({item.status})
+                </span>
+              ))}
             </div>
           </div>
         )}
